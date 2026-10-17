@@ -31,6 +31,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// `gateway migrate`: apply the migrations and exit (the release's migration Job; see deploy/kubernetes/relayplane.yaml)
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if err := bootstrap.Migrate(context.Background(), cfg.DatabaseURL); err != nil {
+			return err
+		}
+		fmt.Println("gateway: database migrations applied")
+		return nil
+	}
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
@@ -44,9 +52,12 @@ func run() error {
 	if err := rt.SeedNodes(ctx); err != nil {
 		return err
 	}
+	// metrics and health on OPS_PORT, like the worker and the reconciler; /metrics leaves the public port in production
+	rt.ServeOps(ctx, ":"+cfg.OpsPort)
 	api := &apihttp.Server{App: rt.App, Metrics: rt.Metrics, Log: rt.Log, Ready: rt.ReadyChecks(), MaxUpload: cfg.MediaMaxBytes,
-		TenantRate: apihttp.RateConfig{PerSecond: cfg.APIRatePerSecond, Burst: cfg.APIRateBurst},
-		Auth:       apihttp.KeyAuthenticator{Tenants: rt.App.Tenants, AdminKey: cfg.AdminAPIKey}}
+		HideMetrics: !cfg.MetricsOnAPIPort,
+		TenantRate:  apihttp.RateConfig{PerSecond: cfg.APIRatePerSecond, Burst: cfg.APIRateBurst},
+		Auth:        apihttp.KeyAuthenticator{Tenants: rt.App.Tenants, AdminKey: cfg.AdminAPIKey}}
 	srv := &http.Server{Addr: ":" + cfg.HTTPPort, Handler: api.Handler(), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 120 * time.Second}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()

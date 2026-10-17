@@ -49,6 +49,24 @@ type Runtime struct {
 	shutdownTrace func(context.Context) error
 }
 
+// Migrate applies the database migrations and returns: the deploy step that runs once per release (a Kubernetes Job,
+// `gateway migrate`), instead of every replica migrating at start-up (AUTO_MIGRATE). It needs only DATABASE_URL; concurrent runs
+// are serialized by the store's advisory lock.
+func Migrate(ctx context.Context, databaseURL string) error {
+	if databaseURL == "" {
+		return fmt.Errorf("DATABASE_URL is required")
+	}
+	st, err := postgres.Open(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("postgres: %w", err)
+	}
+	defer st.Close()
+	if err := st.Migrate(ctx); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+	return nil
+}
+
 // New connects every dependency. service names the binary for logs/traces.
 func New(ctx context.Context, cfg config.Config, service string) (*Runtime, error) {
 	log := observability.NewLogger(os.Stdout, cfg.LogLevel, service)

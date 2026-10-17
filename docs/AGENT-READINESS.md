@@ -79,7 +79,7 @@ As Fases 1–5 do agente (núcleo, confiabilidade, confirmação, flows, compile
 | ID | Item | Tam. |
 |---|---|---|
 | **R30** | PostgreSQL e Redis em HA, backups, PITR, simulado de restore; **os bancos dos nodes Evolution entram aqui, porque guardam as sessões** | L |
-| **R31** | Kubernetes endurecido: requests/limits, PodDisruptionBudget, NetworkPolicy, Job de migração, testes de rolling upgrade e rollback | M |
+| **R31** ✅ (manifesto) | Kubernetes endurecido: requests/limits, PodDisruptionBudget, NetworkPolicy, Job de migração (`gateway migrate`), `OnDelete` nos nodes, `/metrics` fora da porta pública; **falta** o teste de rolling upgrade e rollback num cluster (R35) | M |
 | **R32** | Observabilidade real: Prometheus + Grafana, dashboards, simulado dos alertas, SLOs, retenção de logs sem PII | M |
 | **R33** | Teste de capacidade com latência real do provedor; dimensionar `COMMAND_PARTITIONS` (a vazão é limitada por partições, não por workers) | M |
 | **R34** | Segurança: rotação da chave admin, audit log, `govulncheck`/trivy nas imagens do app, SBOM e assinatura, revisão externa | M–L |

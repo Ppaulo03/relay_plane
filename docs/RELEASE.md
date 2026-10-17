@@ -70,7 +70,18 @@ O mesmo smoke roda **em todo PR** (job `staging` do CI, com as imagens construí
 
 Parear um celular e o comportamento das mensagens (isso é o [`REAL-NUMBER-SPIKE`](./REAL-NUMBER-SPIKE.md)), carga, e nada sobre a **sua** infraestrutura: o repositório não provisiona
 host, cluster, DNS, TLS, gestão de segredos nem backup. O staging do CI é efêmero. Para um staging permanente você precisa de um host ou cluster e dos segredos; com isso, os comandos acima
-(compose) ou `kubectl apply -f relayplane-<v>.yaml` (Kubernetes, com o ConfigMap e o Secret descritos no manifesto) são o caminho.
+(compose) ou o manifesto `relayplane-<v>.yaml` (Kubernetes, com o ConfigMap e o Secret descritos nele) são o caminho. No Kubernetes a implantação tem dois passos, para o
+schema ser migrado **uma vez** antes de qualquer réplica nova subir (nenhuma réplica migra sozinha):
+
+```sh
+kubectl apply -f relayplane-<v>.yaml -l app.kubernetes.io/component=migrate
+kubectl -n relayplane wait --for=condition=complete --timeout=10m job/relayplane-migrate
+kubectl apply -f relayplane-<v>.yaml
+```
+
+O manifesto traz `PodDisruptionBudget` por camada (o dos nodes Evolution não deixa nada despejá-los: troca de node é sob comando, pelo
+[runbook](./runbooks/NODE-REPLACEMENT.md)), `NetworkPolicy` que nega entrada por padrão (só o gateway recebe de fora; só gateway, worker e reconciler falam com os nodes; a porta
+de operação 9090 só para o namespace do Prometheus com o rótulo `relayplane.io/monitoring=true`) e `updateStrategy: OnDelete` no StatefulSet dos nodes.
 
 ## Um defeito que só a medição de latência mostrou
 
@@ -104,6 +115,6 @@ informativo (não bloqueia) para nunca serem surpresa. O que bloqueia é `CRITIC
 
 ## Para o time de operação
 
-* **`/metrics` está na porta pública do gateway**, sem autenticação. Bloqueie `/metrics` no ingress ou publique só a porta de operação (os workers e o reconciler já usam `OPS_PORT`).
+* Em produção o gateway **não** serve `/metrics` na porta pública: as métricas ficam na porta de operação (`OPS_PORT`, 9090), como no worker e no reconciler. `METRICS_ON_API_PORT=true` volta ao comportamento antigo (padrão só em desenvolvimento).
 * O limite de requisições por tenant é **por réplica do gateway**.
 * Postgres é a fonte da verdade: backup e restauração são seus. Redis guarda comandos e eventos em trânsito (`appendonly` ligado no compose).

@@ -18,6 +18,7 @@ import httpx
 from relayplane import RelayPlaneClient, RelayPlaneError
 
 GATEWAY = os.environ.get("GATEWAY", "http://127.0.0.1:18080")
+GATEWAY_OPS = os.environ.get("GATEWAY_OPS", "http://127.0.0.1:19090")
 ADMIN = os.environ["ADMIN_API_KEY"]
 
 failures: list[str] = []
@@ -36,8 +37,10 @@ async def main() -> None:
     r = httpx.get(f"{GATEWAY}/health/ready", timeout=10)
     check(r.status_code == 200, "gateway is ready (every dependency answered)", f"{r.status_code} {r.text[:200]}")
     check(httpx.get(f"{GATEWAY}/health/live", timeout=10).status_code == 200, "gateway is live")
-    metrics = httpx.get(f"{GATEWAY}/metrics", timeout=10)
-    check(metrics.status_code == 200 and "relayplane_" in metrics.text, "metrics are exposed")
+    metrics = httpx.get(f"{GATEWAY_OPS}/metrics", timeout=10)
+    check(metrics.status_code == 200 and "relayplane_" in metrics.text, "metrics are exposed on the ops port")
+    public = httpx.get(f"{GATEWAY}/metrics", timeout=10)
+    check(public.status_code != 200, "metrics are NOT on the public port in production", str(public.status_code))
 
     # 2. the tenant API works with the admin key issuing the first credential
     t = httpx.post(f"{GATEWAY}/api/v1/tenants", headers={"Authorization": f"Bearer {ADMIN}"}, json={"name": f"smoke-{int(time.time())}"}, timeout=15)

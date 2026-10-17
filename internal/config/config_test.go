@@ -94,3 +94,20 @@ func TestTenantWebhookAndIdempotencySettings(t *testing.T) {
 		t.Errorf("a short subscription secret is rejected without being echoed: %v", err)
 	}
 }
+
+// /metrics is unauthenticated: production keeps it off the gateway's public port (it stays on OPS_PORT).
+func TestMetricsLeaveThePublicPortInProduction(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	if c, _ := Load(); c.MetricsOnAPIPort {
+		t.Error("production must not serve /metrics on the public API port by default")
+	}
+	t.Setenv("APP_ENV", "development")
+	if c, _ := Load(); !c.MetricsOnAPIPort {
+		t.Error("development keeps /metrics on the API port (local tooling scrapes it there)")
+	}
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("METRICS_ON_API_PORT", "true")
+	if c, _ := Load(); !c.MetricsOnAPIPort {
+		t.Error("an operator can opt in explicitly")
+	}
+}

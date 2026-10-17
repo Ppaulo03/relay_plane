@@ -27,7 +27,9 @@ type Config struct {
 	LogLevel slog.Level
 
 	HTTPPort string
-	OpsPort  string // metrics/health port of worker and reconciler
+	OpsPort  string // metrics/health port of every binary (the gateway serves it too, next to its API)
+	// MetricsOnAPIPort also serves /metrics on the gateway's public API port (default: development only; production keeps it on OPS_PORT).
+	MetricsOnAPIPort bool
 
 	DatabaseURL string
 	AutoMigrate bool
@@ -142,6 +144,7 @@ func Load() (Config, error) {
 	dev := c.Env != "production"
 	c.WebhooksAllowInsecure = getBool("WEBHOOKS_ALLOW_INSECURE", dev)
 	c.WebhooksAllowPrivate = getBool("WEBHOOKS_ALLOW_PRIVATE_DESTINATIONS", dev)
+	c.MetricsOnAPIPort = getBool("METRICS_ON_API_PORT", dev)
 	var lvl slog.Level
 	if err := lvl.UnmarshalText([]byte(get("LOG_LEVEL", "info"))); err != nil {
 		return c, fmt.Errorf("LOG_LEVEL: %w", err)
