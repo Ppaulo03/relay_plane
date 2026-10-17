@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
@@ -49,7 +49,7 @@ jobs:
   # phase 1: nothing is published here, and this job has no permission to publish
   scan:
     needs: version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -80,7 +80,7 @@ jobs:
   publish:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
     needs: [version, scan]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -110,7 +110,7 @@ jobs:
 
   manifests:
     needs: [version, publish]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: write # only used to create the release when the run was started by a tag
@@ -173,7 +173,7 @@ jobs:
   # the released images, as published, must start together in the production configuration and pass the smoke test
   staging-smoke:
     needs: [version, manifests]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read

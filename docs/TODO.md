@@ -31,14 +31,13 @@ Supply chain:
 - [ ] 👤 O scan usa `ignore-unfixed: true` (um CRITICAL sem correção disponível não bloqueia): escolha de risco consciente, documentada no `RELEASE.md`.
 - [ ] 🧱 Uma falha **durante** a publicação (a fase 2 do release: registro fora do ar no meio dos pushes) ainda pode deixar um release parcial; os pushes são verificados um a um, mas não há como desfazer os que já saíram. Se isso importar, o passo seguinte é publicar tudo por digest sem tags e só então promover as tags.
 - [ ] 🧱 Há achados `HIGH` na árvore de dependências do Evolution (axios, brace-expansion…) que este repositório não corrige sem um fork; o workflow só os lista.
-- [ ] 🧱 O runner `ubuntu-latest` migra para Ubuntu 26 em 2026-10-19 (aviso do GitHub): rodar o CI e o release nele antes disso.
 
 ## 3. Operação em escala (G3)
 
 - [ ] 🧱 Kubernetes: `PodDisruptionBudget`, `NetworkPolicy`, migração do banco como **Job** (hoje `AUTO_MIGRATE=true` nas réplicas; é seguro por lock consultivo, mas o Job separa responsabilidades no upgrade e no rollback), `updateStrategy: OnDelete` no StatefulSet do Evolution (troca de node sob comando, com `drain`; ver `runbooks/PROVIDER-UPGRADE.md`).
 - [ ] 🧱 Dashboards e SLOs sobre as métricas que já existem (latência de entrega de eventos, `relayplane_unknown_*`, `relayplane_event_outbox_*`, `relayplane_event_projection_*`, `relayplane_webhook_backlog_overflow_total`).
 - [ ] 👤 Backup e PITR do Postgres; capacidade real (carga em escala, não só o ensaio de 2000 mensagens).
-- [ ] 🧱 Rotação da chave admin e log de auditoria; `govulncheck` no CI (R34).
+- [ ] 🧱 Rotação da chave admin e log de auditoria (R34; o `govulncheck` já roda no CI).
 
 ## 4. Limpeza
 
