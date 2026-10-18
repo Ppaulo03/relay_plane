@@ -5,7 +5,7 @@ Nenhum componente crítico usa `latest`. Imagens são referenciadas por **tag + 
 
 | Componente | Versão | Digest |
 |---|---|---|
-| Gateway / Worker / Reconciler | `0.2.0` (`RELAYPLANE_VERSION`, estampado via `-ldflags -X main.version`) | construído localmente (`relayplane/{gateway,worker,reconciler}:0.2.0`) |
+| Gateway / Worker / Reconciler | série `0.3.0`: o último candidato publicado é o `0.3.0-rc6` (`rc1` a `rc6` já estão no GHCR e não são reutilizados); o próximo é o `0.3.0-rc7`. A versão vem de `RELAYPLANE_VERSION` (padrão `dev` no compose), estampada via `-ldflags -X main.version` | por release: `ghcr.io/<dono>/relayplane-{gateway,worker,reconciler,simulator,evolution}@sha256:…`, listados no `images.env` e no `relayplane-<v>.yaml` do release; no compose local, construído (`relayplane/<componente>:${RELAYPLANE_VERSION}`) |
 | Evolution API (node) | `v2.3.7`, **reconstruída** em [`deploy/docker/evolution/Dockerfile`](../deploy/docker/evolution/Dockerfile) como `relayplane/evolution:2.3.7-baileys-rc13` | base: `evoapicloud/evolution-api:v2.3.7@sha256:1bd8afc4a6cf48822e6cf02469aeae7bd35a12a6b616eacd1291926307f4d339` (após publicar a imagem no seu registry, fixe o digest dela nos manifests) |
 | Baileys (na imagem acima) | **`7.0.0-rc13`** (instalado com versão exata e verificada no build) | — |
 | Adapter | `evolution/v2` ⇄ Evolution **exatamente** `2.3.7` (allow-list `v2.TestedVersions`; qualquer outra versão ⇒ node não-READY; ampliável com `EVOLUTION_ALLOWED_VERSIONS` após testes) | — |
@@ -29,8 +29,8 @@ Matriz de compatibilidade
 
 | Gateway | Adapter | Evolution | Status |
 |---|---|---|---|
-| 0.2.x | `evolution-v2` | 2.3.7 (Baileys 7.0.0-rc13) | suportado |
-| 0.2.x | `evolution-v2` | 2.4.x | não testado (recusado por padrão) |
+| 0.3.x | `evolution-v2` | 2.3.7 (Baileys 7.0.0-rc13) | suportado |
+| 0.3.x | `evolution-v2` | 2.4.x | não testado (recusado por padrão) |
 | — | `evolution-v3` | 3.x | não implementado |
 
 Como atualizar o Evolution/Baileys: [runbook PROVIDER-UPGRADE](./runbooks/PROVIDER-UPGRADE.md).

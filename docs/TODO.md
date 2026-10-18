@@ -8,8 +8,8 @@ Legenda: 🔑 precisa de número de WhatsApp real · 👤 decisão ou ação sua
 
 - [ ] 🔑 **Validação no aparelho** do que hoje só foi provado com simulador e formatos capturados: mídia nos dois sentidos, resposta citada, "digitando", confirmação de leitura. Repetir a queda do node com o mesmo banco (reconecta sem QR) com a stack de hoje.
 - [ ] 🔑 **Casos do roteiro R22 ainda não vistos:** migração de instância com QR, reação, enquete, localização, queda de conexão **sem** logout, vídeo grande (100 MB) para medir memória do ingestor.
-- [ ] 🧱👤 **Um release candidato novo** com tudo o que entrou depois do `0.3.0-rc3` (entrega ao tenant pelo banco, apagamento fechado nas bordas, contrato `schema_version` 2, limites de assinatura), validado com número real antes do oficial.
-- [ ] 👤 **Primeiro release oficial:** escolher o número (`0.3.0`?), alinhar `docs/VERSIONS.md` e o `docker-compose.yml` (ainda citam 0.2.0), criar a tag `v<versão>` (gera os artefatos e o release no GitHub). Os candidatos `0.3.0-rc1`, `-rc2` e `-rc3` já estão públicos no GHCR: não reutilize esses números.
+- [ ] 🧱👤 **Um release candidato novo (`0.3.0-rc7`)** com tudo o que entrou depois do `0.3.0-rc6` (commit `d4a93dc`): Go 1.26.9 e `x/net` 0.61 (vulnerabilidades do `govulncheck`), manifesto Kubernetes endurecido e `gateway migrate`, SLOs e dashboard, rotação da chave admin e log de auditoria (migração `0016`). Validado com número real antes do oficial.
+- [ ] 👤 **Primeiro release oficial:** escolher o número (`0.3.0`?) e criar a tag `v<versão>` (gera os artefatos e o release no GitHub). Os candidatos `0.3.0-rc1` a `-rc6` já estão públicos no GHCR: não reutilize esses números.
 - [ ] 👤 **Quem implanta** (decidido: não é do módulo): host, DNS, TLS, segredos, backup e restauração do Postgres e dos bancos dos nodes, (o `/metrics` já não fica na porta pública do gateway em produção).
 
 ## 2. Dívidas técnicas conhecidas
