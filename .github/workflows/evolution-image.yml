@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read # this job cannot publish: the next one does, and only if this one passed
@@ -33,7 +33,7 @@ jobs:
 
   publish:
     needs: scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read

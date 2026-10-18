@@ -4,7 +4,7 @@ WORKERS ?= 3
 INSTANCES ?= 20
 MESSAGES ?= 2000
 CHAOS_KILL ?= 0
-GODIGEST = golang:1.26.5@sha256:705e964a93a2fd2e75c7d59bb7d781b57e30f12293ffde5175c69229e18fb678
+GODIGEST = golang:1.26.9@sha256:37cfcca63222ec499bec5e8ad7aad52dbf7529db36d5812b8eae2f0621aa92d6
 INFRA    = deploy/docker/compose.infra.yml
 
 .PHONY: sandbox-up sandbox-down sandbox-example test-sandbox test-load-stack test-load test-chaos test-integration-s3 fmt fmt-check vet build test test-integration test-race sdk-test infra-up infra-down up down evolution-image

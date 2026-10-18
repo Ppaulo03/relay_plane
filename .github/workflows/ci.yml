@@ -1,5 +1,6 @@
 # Gates for every PR and every push to main. Third-party actions are pinned by commit SHA (the same supply-chain rule
-# as container images: see internal/archtest/supply_chain_test.go).
+# as container images: see internal/archtest/supply_chain_test.go). Runners are pinned too (ubuntu-26.04, not ubuntu-latest), so a
+# runner migration is a reviewed change instead of a surprise.
 name: ci
 
 on:
@@ -17,7 +18,7 @@ concurrency:
 jobs:
   go:
     name: format, vet, unit + architecture tests, race
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -27,10 +28,12 @@ jobs:
       - run: make fmt-check vet
       - run: go test -count=1 ./...
       - run: go test -race -count=1 ./internal/...
+      # known vulnerabilities in the Go dependencies and the standard library that the code actually reaches (R34)
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   integration:
     name: real PostgreSQL + Redis + both object stores, chaos and load
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,7 +51,7 @@ jobs:
 
   load-stack:
     name: multi-process load with worker kills
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,7 +64,7 @@ jobs:
 
   sandbox:
     name: sandbox (simulator + python quickstart)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -74,7 +77,7 @@ jobs:
 
   sdk:
     name: python sdk
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,7 +88,7 @@ jobs:
 
   staging:
     name: staging smoke (production configuration, real Evolution node)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

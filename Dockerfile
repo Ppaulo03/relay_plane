@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # One Dockerfile for all three binaries: docker build --build-arg CMD=gateway|worker|reconciler
 # Base images are pinned by digest (never :latest).
-FROM golang:1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS build
+FROM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS build
 ARG CMD=gateway
 ARG VERSION=dev
 WORKDIR /src
