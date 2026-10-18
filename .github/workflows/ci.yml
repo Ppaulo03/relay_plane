@@ -108,3 +108,19 @@ jobs:
         timeout-minutes: 2
       - if: always()
         run: sh deploy/staging/staging.sh down -v
+
+  observability:
+    name: alert and SLO rules (promtool)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # syntax of every rule, then the SLO burn-rate alerts against synthetic series (deploy/prometheus/slo_test.yml)
+      - run: >-
+          docker run --rm -v "$PWD/deploy/prometheus:/rules" -w /rules --entrypoint promtool
+          prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+          check rules alerts.yml slo.yml
+      - run: >-
+          docker run --rm -v "$PWD/deploy/prometheus:/rules" -w /rules --entrypoint promtool
+          prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+          test rules slo_test.yml

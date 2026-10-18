@@ -80,7 +80,7 @@ As Fases 1–5 do agente (núcleo, confiabilidade, confirmação, flows, compile
 |---|---|---|
 | **R30** | PostgreSQL e Redis em HA, backups, PITR, simulado de restore; **os bancos dos nodes Evolution entram aqui, porque guardam as sessões** | L |
 | **R31** ✅ (manifesto) | Kubernetes endurecido: requests/limits, PodDisruptionBudget, NetworkPolicy, Job de migração (`gateway migrate`), `OnDelete` nos nodes, `/metrics` fora da porta pública; **falta** o teste de rolling upgrade e rollback num cluster (R35) | M |
-| **R32** | Observabilidade real: Prometheus + Grafana, dashboards, simulado dos alertas, SLOs, retenção de logs sem PII | M |
+| **R32** ✅ (código) | Observabilidade real: Prometheus + Grafana, dashboards, simulado dos alertas, SLOs, retenção de logs sem PII. **Feito:** SLOs de API, latência de eventos e envio com alertas de queima de orçamento testados no CI (`deploy/prometheus/slo.yml`), dashboard Grafana (`deploy/grafana/relayplane.json`); **falta** ligar num ambiente real e fazer o simulado | M |
 | **R33** | Teste de capacidade com latência real do provedor; dimensionar `COMMAND_PARTITIONS` (a vazão é limitada por partições, não por workers) | M |
 | **R34** | Segurança: rotação da chave admin, audit log, `govulncheck`/trivy nas imagens do app, SBOM e assinatura, revisão externa | M–L |
 | **R35** | Compatibilidade em rolling upgrade (versões antiga e nova convivendo) e política de rollback de migration | M |

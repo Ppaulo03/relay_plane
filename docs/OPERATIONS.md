@@ -213,6 +213,19 @@ reenviado automaticamente: confirme no WhatsApp e, se necessário, reenvie com n
 ## Observabilidade
 
 * `/metrics` (Prometheus). Regras de alerta de referência: [`deploy/prometheus/alerts.yml`](../deploy/prometheus/alerts.yml).
+* **SLOs** em [`deploy/prometheus/slo.yml`](../deploy/prometheus/slo.yml) (carregue junto com `alerts.yml`), cada um com orçamento de erro de 30 dias e alertas de
+  queima em duas janelas (página: 14,4x em 1 h e 5 min; aviso: 6x em 6 h e 30 min):
+
+  | SLO | Objetivo | Série de erro |
+  |---|---|---|
+  | API | 99,9 % das requisições sem 5xx (health e metrics fora) | `relayplane:api_errors:ratio_rate*` |
+  | Eventos | 99 % das primeiras tentativas chegam ao consumidor em até 2 s | `relayplane:event_slow:ratio_rate*` |
+  | Envio | 99 % dos envios com resultado final terminam `ACCEPTED` (não `FAILED`/`UNKNOWN`) | `relayplane:outbound_failed:ratio_rate*` |
+
+  Os alertas têm teste (`promtool test rules deploy/prometheus/slo_test.yml`, no CI).
+* **Dashboard Grafana:** importe [`deploy/grafana/relayplane.json`](../deploy/grafana/relayplane.json) (escolha a fonte Prometheus ao importar): orçamento restante de cada SLO,
+  latência de entrega, tráfego, todos os backlogs que têm alerta, saúde dos nodes e reconciliação. Um teste de arquitetura falha se o dashboard ou as regras
+  consultarem uma métrica que o código não exporta.
 * Alertas prioritários: `relayplane_ownership_violation_total` (possível split-brain), `relayplane_assignment_epoch_mismatch_total`,
   `relayplane_migration_blocked_total`, `relayplane_reconciliation_drift_total` persistente,
   `relayplane_provider_node_health == 0`, `relayplane_outbound_queue_depth` crescente, `relayplane_outbound_dlq_total`.
