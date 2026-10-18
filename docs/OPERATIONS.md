@@ -147,6 +147,22 @@ Ver `.env.example`. Obrigatórias: `DATABASE_URL`, `BLOB_STORE_*`, `WEBHOOK_SECR
 por digest ([VERSIONS](VERSIONS.md)). `BLOB_STORE_PUBLIC_ENDPOINT` deve ser definido **só no gateway** (URLs assinadas para
 clientes); workers usam o endpoint interno, que é o que os nodes Evolution alcançam para baixar mídia.
 
+### Chave admin: rotação e auditoria
+
+A chave admin (`ADMIN_API_KEY`) troca sem parada: suba o gateway com a chave **nova** em `ADMIN_API_KEY` e a antiga em `ADMIN_API_KEY_PREVIOUS`, mova todos os clientes
+para a nova e então remova `ADMIN_API_KEY_PREVIOUS`. Enquanto ela estiver configurada, cada uso dela gera um log `WARN` e aparece no log de auditoria com
+`actor: admin-previous`, que mostra quem ainda não trocou. Em produção as duas precisam de 16 caracteres ou mais e não podem ser iguais.
+
+O **log de auditoria** (tabela `audit_log`, `GET /api/v1/audit`, só admin) registra toda requisição admin e as requisições de tenant que mudam credenciais ou o que é
+guardado: chaves de API, assinaturas (criar, apagar, trocar segredo, pausar, retomar), apagamento de contato, apagar/deslogar/migrar instância e rate policy.
+Guarda rota, id do recurso, status, chave e `request_id`; **nunca** corpo, segredo ou número de telefone. Fica `RETENTION_AUDIT` (padrão 365 dias). Requisições a rotas
+admin com credencial errada não vão para a tabela (seriam um vetor de inundação): viram log `WARN` e o contador `relayplane_admin_auth_failures_total`, com alerta.
+
+```bash
+curl -H "Authorization: Bearer $ADMIN" ":8080/api/v1/audit?limit=50"
+curl -H "Authorization: Bearer $ADMIN" ":8080/api/v1/audit?tenant_id=<tenant>&before=<next_before da página anterior>"
+```
+
 ## Operações comuns
 
 ```bash

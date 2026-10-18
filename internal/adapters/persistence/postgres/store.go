@@ -61,6 +61,7 @@ func (s *Store) Repositories() ports.Repositories {
 		Idempotency: idemRepo{s}, Dedup: dedupRepo{s},
 		Events: eventsRepo{s}, Subscriptions: subsRepo{s}, Deliveries: deliveriesRepo{s}, InboundMedia: inboundMediaRepo{s},
 		Erasures: erasureRepo{s},
+		Audit:    auditRepo{s},
 	}
 }
 

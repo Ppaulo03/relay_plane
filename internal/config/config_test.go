@@ -95,6 +95,40 @@ func TestTenantWebhookAndIdempotencySettings(t *testing.T) {
 	}
 }
 
+func TestAdminKeyRotationSettings(t *testing.T) {
+	// placeholder keys of the right length (not secrets): one letter repeated
+	newKey, oldKey := strings.Repeat("n", 16), strings.Repeat("o", 16)
+	ok := map[string]func(*Config){
+		"no admin key":           func(c *Config) {},
+		"rotation in progress":   func(c *Config) { c.AdminAPIKey, c.AdminAPIKeyPrevious = newKey, oldKey },
+		"long key in production": func(c *Config) { c.Env, c.AdminAPIKey = "production", newKey },
+	}
+	for name, mut := range ok {
+		c := valid()
+		mut(&c)
+		if err := c.Validate(); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	bad := map[string]func(*Config){
+		"short admin key in production": func(c *Config) { c.Env, c.AdminAPIKey = "production", "short" },
+		"short previous key in production": func(c *Config) {
+			c.Env, c.AdminAPIKey, c.AdminAPIKeyPrevious = "production", newKey, "short"
+		},
+		"previous key without a new one": func(c *Config) { c.AdminAPIKeyPrevious = oldKey },
+		"previous equal to the current":  func(c *Config) { c.AdminAPIKey, c.AdminAPIKeyPrevious = newKey, newKey },
+	}
+	for name, mut := range bad {
+		c := valid()
+		mut(&c)
+		if err := c.Validate(); err == nil {
+			t.Errorf("%s: expected an error", name)
+		} else if c.AdminAPIKey != "" && strings.Contains(err.Error(), c.AdminAPIKey) {
+			t.Errorf("%s: the error echoes the key", name)
+		}
+	}
+}
+
 // /metrics is unauthenticated: production keeps it off the gateway's public port (it stays on OPS_PORT).
 func TestMetricsLeaveThePublicPortInProduction(t *testing.T) {
 	t.Setenv("APP_ENV", "production")

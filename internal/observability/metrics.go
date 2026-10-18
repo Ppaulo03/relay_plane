@@ -38,8 +38,10 @@ type Metrics struct {
 	EventOutboxOldest      prometheus.Gauge         // seconds the oldest of them has waited
 	UnknownMessages        prometheus.Gauge         // messages waiting for a decision (UNKNOWN)
 	UnknownOldest          prometheus.Gauge         // seconds the oldest UNKNOWN has been waiting
-	RetentionApplied       *prometheus.CounterVec   // records changed by retention (messages|dead_deliveries)
+	RetentionApplied       *prometheus.CounterVec   // records changed by retention (messages|dead_deliveries|audit)
 	RateLimited            prometheus.Counter       // API requests refused because the tenant spent its budget
+	AuditWriteFailures     prometheus.Counter       // audit entries that could not be stored (the request itself was served)
+	AdminAuthFailures      prometheus.Counter       // requests to admin routes with a missing or wrong credential
 	InboundMedia           *prometheus.CounterVec   // inbound attachments by outcome (ready|too_large|type_not_allowed|unsupported|expired|download_failed|retry)
 	InboundMediaPending    *prometheus.GaugeVec     // jobs waiting by stage (download|publish)
 	BlobCleanupTotal       *prometheus.CounterVec   // by reason
@@ -96,6 +98,8 @@ func NewMetrics() *Metrics {
 	m.UnknownOldest = prometheus.NewGauge(prometheus.GaugeOpts{Name: "relayplane_unknown_oldest_seconds", Help: "How long the oldest UNKNOWN message has been waiting."})
 	m.RetentionApplied = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "relayplane_retention_applied_total", Help: "Records anonymized or deleted by retention."}, []string{"kind"})
 	m.RateLimited = prometheus.NewCounter(prometheus.CounterOpts{Name: "relayplane_api_rate_limited_total", Help: "API requests refused with 429."})
+	m.AuditWriteFailures = prometheus.NewCounter(prometheus.CounterOpts{Name: "relayplane_audit_write_failures_total", Help: "Audit log entries that could not be stored."})
+	m.AdminAuthFailures = prometheus.NewCounter(prometheus.CounterOpts{Name: "relayplane_admin_auth_failures_total", Help: "Requests to admin routes refused for a missing or wrong credential."})
 	m.InboundMedia = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "relayplane_inbound_media_total", Help: "Inbound attachments by outcome."}, []string{"outcome"})
 	m.InboundMediaPending = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "relayplane_inbound_media_pending", Help: "Inbound attachments waiting to be resolved or published, by stage."}, []string{"stage"})
 	m.BlobBytes = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "relayplane_blob_bytes", Help: "Bytes moved through the blob store."}, []string{"op"})
@@ -117,7 +121,7 @@ func NewMetrics() *Metrics {
 		m.InstancesTotal, m.InstancesConnected, m.ProviderNodesTotal, m.ProviderNodeHealth, m.OutboundQueueDepth,
 		m.OutboundRetryTotal, m.OutboundDLQTotal, m.OutboundMessages, m.InboundEventsTotal, m.InboundDuplicates,
 		m.OwnershipViolation, m.StaleCommandTotal, m.EpochMismatchTotal, m.ReconciliationTotal, m.ReconciliationFail,
-		m.ReconciliationDrift, m.RateLimitWait, m.BlobBytes, m.EventProjectionPending, m.EventProjectionOldest, m.WebhookBacklogOverflow, m.EventOutboxPending, m.EventOutboxOldest, m.UnknownMessages, m.UnknownOldest, m.EventDeliveryLag, m.RetentionApplied, m.RateLimited, m.InboundMedia, m.InboundMediaPending, m.BlobCleanupTotal, m.ProviderLatency, m.HTTPRequests,
+		m.ReconciliationDrift, m.RateLimitWait, m.BlobBytes, m.EventProjectionPending, m.EventProjectionOldest, m.WebhookBacklogOverflow, m.EventOutboxPending, m.EventOutboxOldest, m.UnknownMessages, m.UnknownOldest, m.EventDeliveryLag, m.RetentionApplied, m.RateLimited, m.AuditWriteFailures, m.AdminAuthFailures, m.InboundMedia, m.InboundMediaPending, m.BlobCleanupTotal, m.ProviderLatency, m.HTTPRequests,
 		m.HTTPLatency, m.MigrationBlockedTotal, m.BarrierDeferrals, m.OutboxPublished,
 	} {
 		f(c)
