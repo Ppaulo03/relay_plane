@@ -96,7 +96,6 @@ Legenda: ✅ feito e testado · ⚠️ feito com limitação registrada · ⏭�
 | Adapter filesystem de blobs | Somente dev/testes; o adapter em memória cobre os testes |
 | Consumo de eventos pelo SDK (`consumer`) | O DoD termina em "publicar evento canônico"; falta definir o canal de entrega às aplicações (stream ACL por tenant, webhook de saída ou SSE) |
 | RBAC além de `tenant`/`admin` | `Principal.Role` é o ponto de extensão |
-| Dashboards Grafana | Métricas e regras de alerta de referência existem (`deploy/prometheus/alerts.yml`) |
 | Helm chart / HPA | Há manifestos base em `deploy/kubernetes/` |
 | Testes de carga/capacidade | Sem ambiente dedicado |
 | Rotação de `WEBHOOK_SECRET` | Hoje exige recriar o webhook das instâncias (token derivado do secret) |

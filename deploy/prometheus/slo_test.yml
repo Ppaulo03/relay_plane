@@ -1,0 +1,65 @@
+# promtool unit tests for slo.yml: `promtool test rules deploy/prometheus/slo_test.yml` (run by CI).
+rule_files: [slo.yml]
+evaluation_interval: 1m
+tests:
+  # 20 % of API requests fail for 2 hours: the fast burn pages; health checks do not count
+  - interval: 1m
+    input_series:
+      - series: 'relayplane_http_requests_total{route="POST /api/v1/messages/send", method="POST", code="2xx"}'
+        values: '0+80x120'
+      - series: 'relayplane_http_requests_total{route="POST /api/v1/messages/send", method="POST", code="5xx"}'
+        values: '0+20x120'
+      - series: 'relayplane_http_requests_total{route="GET /health/ready", method="GET", code="5xx"}'
+        values: '0+1000x120'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: RelayPlaneAPIErrorBudgetBurn
+        exp_alerts:
+          - exp_labels: {severity: page, slo: api}
+            exp_annotations: {summary: "The API is answering 5xx fast enough to spend the 30-day error budget (0.1 %) in about 2 days: look at the gateway logs (level=ERROR) and its dependencies (PostgreSQL, Redis, object store)"}
+    promql_expr_test:
+      - expr: relayplane:api_errors:ratio_rate5m
+        eval_time: 90m
+        exp_samples:
+          - labels: 'relayplane:api_errors:ratio_rate5m'
+            value: 0.2
+
+  # healthy: no 5xx at all, no alert
+  - interval: 1m
+    input_series:
+      - series: 'relayplane_http_requests_total{route="POST /api/v1/messages/send", method="POST", code="2xx"}'
+        values: '0+100x120'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: RelayPlaneAPIErrorBudgetBurn
+        exp_alerts: []
+
+  # half of the first delivery attempts take more than 2 s: the event latency budget pages
+  - interval: 1m
+    input_series:
+      - series: 'relayplane_event_delivery_lag_seconds_bucket{event_type="message.received", attempt="first", le="2"}'
+        values: '0+50x120'
+      - series: 'relayplane_event_delivery_lag_seconds_bucket{event_type="message.received", attempt="first", le="+Inf"}'
+        values: '0+100x120'
+      - series: 'relayplane_event_delivery_lag_seconds_count{event_type="message.received", attempt="first"}'
+        values: '0+100x120'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: RelayPlaneEventLatencyBudgetBurn
+        exp_alerts:
+          - exp_labels: {severity: page, slo: events}
+            exp_annotations: {summary: "Over 14 % of tenant events take more than 2 s to reach the consumer on the first attempt (the agent's turn waits on them): check relayplane_event_outbox_oldest_seconds (fan-out) and relayplane_webhook_delivery_seconds (slow consumer)"}
+
+  # a node down: every send FAILED for an hour and a half
+  - interval: 1m
+    input_series:
+      - series: 'relayplane_outbound_messages_total{status="ACCEPTED"}'
+        values: '0+0x120'
+      - series: 'relayplane_outbound_messages_total{status="FAILED"}'
+        values: '0+10x120'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: RelayPlaneOutboundFailureBudgetBurn
+        exp_alerts:
+          - exp_labels: {severity: page, slo: outbound}
+            exp_annotations: {summary: "Over 14 % of outbound messages end FAILED or UNKNOWN: a provider node or the WhatsApp session is failing (relayplane_provider_node_health, relayplane_provider_request_seconds{outcome!=\"ok\"}; UNKNOWN: docs/runbooks/UNKNOWN-MESSAGES.md)"}

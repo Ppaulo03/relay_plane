@@ -1,0 +1,118 @@
+# Service level objectives (R32) over the metrics RelayPlane already exports. Load next to alerts.yml:
+#
+#   rule_files: [deploy/prometheus/alerts.yml, deploy/prometheus/slo.yml]
+#
+# Three objectives, each with an error budget over 30 days and multi-window burn-rate alerts (the Google SRE workbook pattern:
+# page when the budget burns 14.4x too fast over 1 h AND 5 min, ticket when it burns 6x over 6 h AND 30 min):
+#
+#   api        99.9 % of API requests answer without a 5xx            (health and metrics endpoints excluded)
+#   events     99 % of first delivery attempts reach the consumer in 2 s  (relayplane_event_delivery_lag_seconds, attempt="first")
+#   outbound   99 % of outbound messages that reach a final send outcome are ACCEPTED by the provider (not FAILED or UNKNOWN)
+#
+# Recording rules are named relayplane:<sli>:<ratio>_<window> and hold the ERROR ratio (0 = perfect).
+# grafana/relayplane.json draws these series; internal/archtest checks that every metric named here exists.
+groups:
+  - name: relayplane-slo-api
+    interval: 30s
+    rules:
+      - record: relayplane:api_errors:ratio_rate5m
+        expr: |
+          sum(rate(relayplane_http_requests_total{code="5xx", route!~".*(/health/|/metrics).*"}[5m]))
+          / clamp_min(sum(rate(relayplane_http_requests_total{route!~".*(/health/|/metrics).*"}[5m])), 1e-9)
+      - record: relayplane:api_errors:ratio_rate30m
+        expr: |
+          sum(rate(relayplane_http_requests_total{code="5xx", route!~".*(/health/|/metrics).*"}[30m]))
+          / clamp_min(sum(rate(relayplane_http_requests_total{route!~".*(/health/|/metrics).*"}[30m])), 1e-9)
+      - record: relayplane:api_errors:ratio_rate1h
+        expr: |
+          sum(rate(relayplane_http_requests_total{code="5xx", route!~".*(/health/|/metrics).*"}[1h]))
+          / clamp_min(sum(rate(relayplane_http_requests_total{route!~".*(/health/|/metrics).*"}[1h])), 1e-9)
+      - record: relayplane:api_errors:ratio_rate6h
+        expr: |
+          sum(rate(relayplane_http_requests_total{code="5xx", route!~".*(/health/|/metrics).*"}[6h]))
+          / clamp_min(sum(rate(relayplane_http_requests_total{route!~".*(/health/|/metrics).*"}[6h])), 1e-9)
+      - record: relayplane:api_errors:ratio_rate30d
+        expr: |
+          sum(rate(relayplane_http_requests_total{code="5xx", route!~".*(/health/|/metrics).*"}[30d]))
+          / clamp_min(sum(rate(relayplane_http_requests_total{route!~".*(/health/|/metrics).*"}[30d])), 1e-9)
+
+  - name: relayplane-slo-events
+    interval: 30s
+    rules:
+      # share of first delivery attempts slower than 2 s (the bucket le="2" counts the ones that made it)
+      - record: relayplane:event_slow:ratio_rate5m
+        expr: |
+          1 - sum(rate(relayplane_event_delivery_lag_seconds_bucket{attempt="first", le="2"}[5m]))
+            / clamp_min(sum(rate(relayplane_event_delivery_lag_seconds_count{attempt="first"}[5m])), 1e-9)
+      - record: relayplane:event_slow:ratio_rate30m
+        expr: |
+          1 - sum(rate(relayplane_event_delivery_lag_seconds_bucket{attempt="first", le="2"}[30m]))
+            / clamp_min(sum(rate(relayplane_event_delivery_lag_seconds_count{attempt="first"}[30m])), 1e-9)
+      - record: relayplane:event_slow:ratio_rate1h
+        expr: |
+          1 - sum(rate(relayplane_event_delivery_lag_seconds_bucket{attempt="first", le="2"}[1h]))
+            / clamp_min(sum(rate(relayplane_event_delivery_lag_seconds_count{attempt="first"}[1h])), 1e-9)
+      - record: relayplane:event_slow:ratio_rate6h
+        expr: |
+          1 - sum(rate(relayplane_event_delivery_lag_seconds_bucket{attempt="first", le="2"}[6h]))
+            / clamp_min(sum(rate(relayplane_event_delivery_lag_seconds_count{attempt="first"}[6h])), 1e-9)
+      - record: relayplane:event_slow:ratio_rate30d
+        expr: |
+          1 - sum(rate(relayplane_event_delivery_lag_seconds_bucket{attempt="first", le="2"}[30d]))
+            / clamp_min(sum(rate(relayplane_event_delivery_lag_seconds_count{attempt="first"}[30d])), 1e-9)
+      - record: relayplane:event_lag_first:p95_rate5m
+        expr: histogram_quantile(0.95, sum by (le) (rate(relayplane_event_delivery_lag_seconds_bucket{attempt="first"}[5m])))
+
+  - name: relayplane-slo-outbound
+    interval: 30s
+    rules:
+      - record: relayplane:outbound_failed:ratio_rate5m
+        expr: |
+          sum(rate(relayplane_outbound_messages_total{status=~"FAILED|UNKNOWN"}[5m]))
+          / clamp_min(sum(rate(relayplane_outbound_messages_total{status=~"ACCEPTED|FAILED|UNKNOWN"}[5m])), 1e-9)
+      - record: relayplane:outbound_failed:ratio_rate30m
+        expr: |
+          sum(rate(relayplane_outbound_messages_total{status=~"FAILED|UNKNOWN"}[30m]))
+          / clamp_min(sum(rate(relayplane_outbound_messages_total{status=~"ACCEPTED|FAILED|UNKNOWN"}[30m])), 1e-9)
+      - record: relayplane:outbound_failed:ratio_rate1h
+        expr: |
+          sum(rate(relayplane_outbound_messages_total{status=~"FAILED|UNKNOWN"}[1h]))
+          / clamp_min(sum(rate(relayplane_outbound_messages_total{status=~"ACCEPTED|FAILED|UNKNOWN"}[1h])), 1e-9)
+      - record: relayplane:outbound_failed:ratio_rate6h
+        expr: |
+          sum(rate(relayplane_outbound_messages_total{status=~"FAILED|UNKNOWN"}[6h]))
+          / clamp_min(sum(rate(relayplane_outbound_messages_total{status=~"ACCEPTED|FAILED|UNKNOWN"}[6h])), 1e-9)
+      - record: relayplane:outbound_failed:ratio_rate30d
+        expr: |
+          sum(rate(relayplane_outbound_messages_total{status=~"FAILED|UNKNOWN"}[30d]))
+          / clamp_min(sum(rate(relayplane_outbound_messages_total{status=~"ACCEPTED|FAILED|UNKNOWN"}[30d])), 1e-9)
+
+  - name: relayplane-slo-alerts
+    rules:
+      # api: budget 0.1 %
+      - alert: RelayPlaneAPIErrorBudgetBurn
+        expr: relayplane:api_errors:ratio_rate1h > (14.4 * 0.001) and relayplane:api_errors:ratio_rate5m > (14.4 * 0.001)
+        labels: {severity: page, slo: api}
+        annotations: {summary: "The API is answering 5xx fast enough to spend the 30-day error budget (0.1 %) in about 2 days: look at the gateway logs (level=ERROR) and its dependencies (PostgreSQL, Redis, object store)"}
+      - alert: RelayPlaneAPIErrorBudgetSlowBurn
+        expr: relayplane:api_errors:ratio_rate6h > (6 * 0.001) and relayplane:api_errors:ratio_rate30m > (6 * 0.001)
+        labels: {severity: warn, slo: api}
+        annotations: {summary: "The API keeps answering 5xx at a rate that spends the 30-day error budget in about 5 days"}
+      # events: budget 1 % of first attempts slower than 2 s
+      - alert: RelayPlaneEventLatencyBudgetBurn
+        expr: relayplane:event_slow:ratio_rate1h > (14.4 * 0.01) and relayplane:event_slow:ratio_rate5m > (14.4 * 0.01)
+        labels: {severity: page, slo: events}
+        annotations: {summary: "Over 14 % of tenant events take more than 2 s to reach the consumer on the first attempt (the agent's turn waits on them): check relayplane_event_outbox_oldest_seconds (fan-out) and relayplane_webhook_delivery_seconds (slow consumer)"}
+      - alert: RelayPlaneEventLatencyBudgetSlowBurn
+        expr: relayplane:event_slow:ratio_rate6h > (6 * 0.01) and relayplane:event_slow:ratio_rate30m > (6 * 0.01)
+        labels: {severity: warn, slo: events}
+        annotations: {summary: "Over 6 % of tenant events take more than 2 s on the first attempt, for hours"}
+      # outbound: budget 1 % of final send outcomes FAILED or UNKNOWN
+      - alert: RelayPlaneOutboundFailureBudgetBurn
+        expr: relayplane:outbound_failed:ratio_rate1h > (14.4 * 0.01) and relayplane:outbound_failed:ratio_rate5m > (14.4 * 0.01)
+        labels: {severity: page, slo: outbound}
+        annotations: {summary: "Over 14 % of outbound messages end FAILED or UNKNOWN: a provider node or the WhatsApp session is failing (relayplane_provider_node_health, relayplane_provider_request_seconds{outcome!=\"ok\"}; UNKNOWN: docs/runbooks/UNKNOWN-MESSAGES.md)"}
+      - alert: RelayPlaneOutboundFailureBudgetSlowBurn
+        expr: relayplane:outbound_failed:ratio_rate6h > (6 * 0.01) and relayplane:outbound_failed:ratio_rate30m > (6 * 0.01)
+        labels: {severity: warn, slo: outbound}
+        annotations: {summary: "Over 6 % of outbound messages end FAILED or UNKNOWN, for hours"}
