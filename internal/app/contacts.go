@@ -118,11 +118,13 @@ type RetentionPolicy struct {
 	DeadDeliveries time.Duration
 	// PendingDeliveries: deliveries still waiting (typically of a subscription left paused) are deleted after this long.
 	PendingDeliveries time.Duration
+	// Audit: entries of the audit log are deleted after this long (0 keeps them forever).
+	Audit time.Duration
 }
 
 // DefaultRetention is what the platform does without configuration: 90 days of message content, 30 days of DLQ.
 func DefaultRetention() RetentionPolicy {
-	return RetentionPolicy{Messages: 90 * 24 * time.Hour, DeadDeliveries: 30 * 24 * time.Hour, PendingDeliveries: 30 * 24 * time.Hour}
+	return RetentionPolicy{Messages: 90 * 24 * time.Hour, DeadDeliveries: 30 * 24 * time.Hour, PendingDeliveries: 30 * 24 * time.Hour, Audit: 365 * 24 * time.Hour}
 }
 
 // Apply runs one pass of the policy and returns how many records it changed.

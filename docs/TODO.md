@@ -37,7 +37,7 @@ Supply chain:
 - [ ] 🧱 Kubernetes: testes de rolling upgrade e rollback num cluster (R35). `PodDisruptionBudget`, `NetworkPolicy`, migração como Job e `OnDelete` nos nodes já estão no manifesto.
 - [ ] 👤 Ligar o Prometheus e o Grafana de verdade (as regras de SLO e o dashboard estão em `deploy/prometheus/slo.yml` e `deploy/grafana/relayplane.json`) e fazer um simulado dos alertas de página.
 - [ ] 👤 Backup e PITR do Postgres; capacidade real (carga em escala, não só o ensaio de 2000 mensagens).
-- [ ] 🧱 Rotação da chave admin e log de auditoria (R34; o `govulncheck` já roda no CI).
+- [ ] 👤 Revisão externa de segurança (R34). Rotação da chave admin, log de auditoria e `govulncheck` no CI já existem.
 
 ## 4. Limpeza
 

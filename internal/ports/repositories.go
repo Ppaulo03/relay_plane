@@ -19,4 +19,6 @@ type Repositories struct {
 	InboundMedia InboundMediaRepository
 	// Erasures remembers which contacts were erased and when, so that what was in flight at that moment cannot bring them back.
 	Erasures ErasureRepository
+	// Audit is the append-only log of privileged actions (admin requests, tenant security changes).
+	Audit AuditRepository
 }

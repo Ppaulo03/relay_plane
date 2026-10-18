@@ -35,6 +35,8 @@ type Principal struct {
 	Role     Role
 	TenantID string // empty for admins
 	KeyID    string // the API key that authenticated the request (tenants only)
+	// PreviousAdminKey is true when the admin authenticated with ADMIN_API_KEY_PREVIOUS (a rotation in progress).
+	PreviousAdminKey bool
 }
 
 type ctxKey struct{}
@@ -48,6 +50,8 @@ type Authenticator interface {
 type KeyAuthenticator struct {
 	Tenants  *app.TenantService
 	AdminKey string
+	// PreviousAdminKey is accepted too while the admin key is rotated (empty: only AdminKey).
+	PreviousAdminKey string
 }
 
 // Authenticate implements Authenticator.
@@ -57,6 +61,9 @@ func (a KeyAuthenticator) Authenticate(ctx context.Context, token string) (Princ
 	}
 	if a.AdminKey != "" && subtle.ConstantTimeCompare([]byte(token), []byte(a.AdminKey)) == 1 {
 		return Principal{Role: RoleAdmin}, nil
+	}
+	if a.AdminKey != "" && a.PreviousAdminKey != "" && subtle.ConstantTimeCompare([]byte(token), []byte(a.PreviousAdminKey)) == 1 {
+		return Principal{Role: RoleAdmin, PreviousAdminKey: true}, nil
 	}
 	t, k, err := a.Tenants.AuthenticateKey(ctx, token)
 	if err != nil {
@@ -146,6 +153,7 @@ func (s *Server) Handler() nethttp.Handler {
 	mux.HandleFunc("GET /api/v1/api-keys", tenant(s.listAPIKeys))
 	mux.HandleFunc("DELETE /api/v1/api-keys/{id}", tenant(s.revokeAPIKey))
 	mux.HandleFunc("PUT /api/v1/tenants/{id}/rate-policy", admin(s.setTenantRatePolicy))
+	mux.HandleFunc("GET /api/v1/audit", admin(s.listAudit))
 
 	mux.HandleFunc("POST /webhooks/{provider}", s.webhook)
 
@@ -221,10 +229,16 @@ func (s *Server) authed(role Role, h func(nethttp.ResponseWriter, *nethttp.Reque
 	return func(w nethttp.ResponseWriter, r *nethttp.Request) {
 		p, err := s.Auth.Authenticate(r.Context(), bearer(r))
 		if err != nil {
+			if role == RoleAdmin {
+				s.adminAuthFailed(r)
+			}
 			writeError(w, r, s.Log, errs.ErrUnauthenticated)
 			return
 		}
 		if p.Role != role {
+			if role == RoleAdmin {
+				s.adminAuthFailed(r)
+			}
 			writeError(w, r, s.Log, errs.ErrForbidden)
 			return
 		}
@@ -232,7 +246,17 @@ func (s *Server) authed(role Role, h func(nethttp.ResponseWriter, *nethttp.Reque
 			return
 		}
 		ctx := observability.With(r.Context(), observability.KeyTenantID, p.TenantID)
-		h(w, r.WithContext(context.WithValue(ctx, ctxKey{}, p)), p)
+		r = r.WithContext(context.WithValue(ctx, ctxKey{}, p))
+		if !audited(p, r) {
+			h(w, r, p)
+			return
+		}
+		sw, ok := w.(*statusWriter)
+		if !ok {
+			sw = &statusWriter{ResponseWriter: w, code: 200}
+		}
+		h(sw, r, p)
+		s.audit(r, p, sw.code, w.Header().Get("X-Request-Id"))
 	}
 }
 

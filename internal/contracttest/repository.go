@@ -106,6 +106,7 @@ func RepositoryContract(t *testing.T, factory RepoFactory) {
 	t.Run("ObservedEmitting", func(t *testing.T) { observedEmittingContract(t, factory) })
 	t.Run("MessageList", func(t *testing.T) { messageListContract(t, factory) })
 	t.Run("APIKeys", func(t *testing.T) { apiKeysContract(t, factory) })
+	t.Run("Audit", func(t *testing.T) { auditContract(t, factory) })
 }
 
 func tenantsContract(t *testing.T, f RepoFactory) {

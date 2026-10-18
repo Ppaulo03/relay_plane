@@ -386,6 +386,40 @@ paths:
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RatePolicy'}}}}
       responses:
         '200': {description: OK}
+  /api/v1/audit:
+    get:
+      tags: [admin]
+      summary: The audit log, newest first (every admin request and the security-relevant requests of tenants; never bodies, secrets or phone numbers)
+      parameters:
+        - {name: tenant_id, in: query, schema: {type: string}, description: only the entries of this tenant (its own actions and admin actions on it)}
+        - {name: before, in: query, schema: {type: string, format: date-time}, description: entries strictly older than this (the next_before of the previous page)}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  next_before: {type: string, format: date-time, description: present when the page is full}
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, at, actor, route, status]
+                      properties:
+                        id: {type: string}
+                        at: {type: string, format: date-time}
+                        actor: {type: string, enum: [admin, admin-previous, tenant], description: admin-previous = ADMIN_API_KEY_PREVIOUS (rotation in progress)}
+                        tenant_id: {type: string}
+                        key_id: {type: string, description: the tenant API key that acted}
+                        route: {type: string, example: "POST /api/v1/tenants/{id}/api-keys"}
+                        target: {type: string, description: the id in the path}
+                        status: {type: integer}
+                        request_id: {type: string}
+        '400': {$ref: '#/components/responses/Error'}
   /webhooks/{provider}:
     post:
       tags: [ops]

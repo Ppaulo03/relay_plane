@@ -41,6 +41,13 @@ func (r *Reconciler) Maintenance(ctx context.Context) {
 		d.Metrics.RetentionApplied.WithLabelValues("messages").Add(float64(msgs))
 		d.Metrics.RetentionApplied.WithLabelValues("dead_deliveries").Add(float64(dead))
 	}
+	if r.Cfg.Retention.Audit > 0 {
+		if n, err := d.Repos.Audit.PurgeBefore(ctx, time.Now().Add(-r.Cfg.Retention.Audit)); err != nil {
+			r.Log.WarnContext(ctx, "audit log purge failed", "error", err)
+		} else if n > 0 {
+			d.Metrics.RetentionApplied.WithLabelValues("audit").Add(float64(n))
+		}
+	}
 	if _, err := d.Repos.InboundMedia.Purge(ctx, time.Now().Add(-24*time.Hour)); err != nil {
 		r.Log.WarnContext(ctx, "inbound media job purge failed", "error", err)
 	}

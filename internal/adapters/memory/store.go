@@ -46,6 +46,7 @@ type Store struct {
 	deliverySeq map[string]int64     // "subscription|instance" -> last sequence
 	inbound     map[string]*inboundRow
 	apiKeys     map[string]*instance.APIKey
+	audit       []ports.AuditEntry
 
 	// BeforeCommit lets failure tests inject a fault into multi-step writes
 	// (simulating a transaction rollback). Return an error to abort.
@@ -88,6 +89,7 @@ func (s *Store) Repositories() ports.Repositories {
 		Idempotency: idemRepo{s}, Dedup: dedupRepo{s},
 		Events: eventsRepo{s}, Subscriptions: subsRepo{s}, Deliveries: deliveriesRepo{s}, InboundMedia: inboundMediaRepo{s},
 		Erasures: erasureRepo{s},
+		Audit:    auditRepo{s},
 	}
 }
 

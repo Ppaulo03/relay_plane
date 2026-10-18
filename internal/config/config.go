@@ -64,7 +64,12 @@ type Config struct {
 	APIRateBurst               int
 	InboundMediaTTL            time.Duration
 
-	AdminAPIKey    string
+	AdminAPIKey string
+	// AdminAPIKeyPrevious is still accepted while the admin key is rotated (deploy the new key as ADMIN_API_KEY with the old one
+	// here, move every client to the new key, then remove this). Its uses show up as actor "admin-previous" in the audit log.
+	AdminAPIKeyPrevious string
+	// RetentionAudit: how long the audit log keeps an entry (0 keeps it forever).
+	RetentionAudit time.Duration
 	WebhookSecret  string
 	WebhookBaseURL string
 
@@ -125,7 +130,7 @@ func Load() (Config, error) {
 		InboundMediaMaxBytes: int64(getInt("INBOUND_MEDIA_MAX_BYTES", 25<<20)), InboundMediaTTL: getDur("INBOUND_MEDIA_TTL", 7*24*time.Hour),
 		RetentionMessages: getDur("RETENTION_MESSAGES", 90*24*time.Hour), RetentionDeadDeliveries: getDur("RETENTION_DEAD_DELIVERIES", 30*24*time.Hour), RetentionPendingDeliveries: getDur("RETENTION_PENDING_DELIVERIES", 30*24*time.Hour),
 		APIRatePerSecond: float64(getInt("API_RATE_PER_SECOND", 50)), APIRateBurst: getInt("API_RATE_BURST", 100),
-		AdminAPIKey: os.Getenv("ADMIN_API_KEY"), WebhookSecret: os.Getenv("WEBHOOK_SECRET"), WebhookBaseURL: os.Getenv("WEBHOOK_BASE_URL"),
+		AdminAPIKey: os.Getenv("ADMIN_API_KEY"), AdminAPIKeyPrevious: os.Getenv("ADMIN_API_KEY_PREVIOUS"), RetentionAudit: getDur("RETENTION_AUDIT", 365*24*time.Hour), WebhookSecret: os.Getenv("WEBHOOK_SECRET"), WebhookBaseURL: os.Getenv("WEBHOOK_BASE_URL"),
 		DefaultProvider: get("DEFAULT_PROVIDER", "evolution-v2"),
 		RateMinInterval: getDur("RATE_MIN_INTERVAL", time.Second), RateBurst: getInt("RATE_BURST", 1), RateMaxPerMinute: getInt("RATE_MAX_PER_MINUTE", 30),
 		RateMaxConcurrent: getInt("RATE_MAX_CONCURRENT", 1), RateCooldown: getDur("RATE_COOLDOWN", time.Minute),
@@ -192,6 +197,19 @@ func (c Config) Validate() error {
 	}
 	if c.IdempotencyTTL != 0 && c.IdempotencyTTL < time.Minute {
 		return fmt.Errorf("IDEMPOTENCY_TTL must be at least 1m")
+	}
+	if c.Env == "production" && c.AdminAPIKey != "" && len(c.AdminAPIKey) < 16 {
+		return fmt.Errorf("ADMIN_API_KEY must have at least 16 characters in production")
+	}
+	if c.AdminAPIKeyPrevious != "" {
+		switch {
+		case c.AdminAPIKey == "":
+			return fmt.Errorf("ADMIN_API_KEY_PREVIOUS is only accepted next to a new ADMIN_API_KEY (rotation)")
+		case c.AdminAPIKeyPrevious == c.AdminAPIKey:
+			return fmt.Errorf("ADMIN_API_KEY_PREVIOUS must differ from ADMIN_API_KEY")
+		case c.Env == "production" && len(c.AdminAPIKeyPrevious) < 16:
+			return fmt.Errorf("ADMIN_API_KEY_PREVIOUS must have at least 16 characters in production")
+		}
 	}
 	if c.Env == "production" && len(c.WebhookSecret) < 16 {
 		return fmt.Errorf("WEBHOOK_SECRET must have at least 16 characters in production")

@@ -70,6 +70,14 @@ groups:
         for: 10m
         labels: {severity: info}
         annotations: {summary: "A worker has an open circuit towards a tenant webhook endpoint for over 10 minutes"}
+      - alert: RelayPlaneAuditWriteFailing
+        expr: increase(relayplane_audit_write_failures_total[10m]) > 0
+        labels: {severity: warn}
+        annotations: {summary: "Privileged actions are being served but NOT recorded in the audit log (gateway logs: \"audit entry not stored\")"}
+      - alert: RelayPlaneAdminAuthFailures
+        expr: increase(relayplane_admin_auth_failures_total[10m]) > 20
+        labels: {severity: warn}
+        annotations: {summary: "Repeated requests to admin routes with a wrong or missing credential: a client with a stale admin key after a rotation, or someone guessing it (gateway logs: remote address)"}
       - alert: RelayPlaneNoWorkers
         expr: absent(up{job="relayplane-worker"} == 1)
         for: 2m
