@@ -5,6 +5,15 @@
 #
 # Provider nodes are stateful singletons -> StatefulSet (stable identity: evolution-v2-0, -1, ...).
 # Gateway / worker / reconciler are stateless -> Deployments.
+#
+# Deploying a release is two steps, so the schema is migrated ONCE, before any new replica starts (no replica migrates by itself):
+#   kubectl apply -f relayplane-<version>.yaml -l app.kubernetes.io/component=migrate
+#   kubectl -n relayplane wait --for=condition=complete --timeout=10m job/relayplane-migrate
+#   kubectl apply -f relayplane-<version>.yaml
+# The finished Job deletes itself after an hour (ttlSecondsAfterFinished), so the next release can create it again.
+#
+# Metrics: every binary serves /metrics and /health on its ops port 9090, which no Service exposes; only Prometheus (namespace
+# labelled relayplane.io/monitoring=true) may reach it. The gateway's public port 8080 does not serve /metrics in production.
 apiVersion: v1
 kind: Namespace
 metadata: {name: relayplane}
@@ -48,14 +57,16 @@ spec:
   replicas: 2
   selector: {matchLabels: {app: gateway}}
   template:
-    metadata: {labels: {app: gateway}}
+    metadata: {labels: {app: gateway}, annotations: {prometheus.io/scrape: "true", prometheus.io/port: "9090"}}
     spec:
       securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      terminationGracePeriodSeconds: 30
       containers:
         - name: gateway
           image: registry.example.com/relayplane/gateway:0.1.0@sha256:REPLACE_WITH_BUILD_DIGEST
-          ports: [{containerPort: 8080}]
-          env: [{name: AUTO_MIGRATE, value: "true"}, {name: HTTP_PORT, value: "8080"}]
+          ports: [{containerPort: 8080, name: http}, {containerPort: 9090, name: ops}]
+          # no AUTO_MIGRATE: the relayplane-migrate Job migrates the schema before the rollout
+          env: [{name: HTTP_PORT, value: "8080"}, {name: OPS_PORT, value: "9090"}]
           envFrom: [{configMapRef: {name: relayplane-config}}, {secretRef: {name: relayplane-secrets}}]
           readinessProbe: {httpGet: {path: /health/ready, port: 8080}, periodSeconds: 5}
           livenessProbe: {httpGet: {path: /health/live, port: 8080}, periodSeconds: 10}
@@ -67,7 +78,29 @@ kind: Service
 metadata: {name: gateway, namespace: relayplane}
 spec:
   selector: {app: gateway}
-  ports: [{port: 8080, targetPort: 8080}]
+  ports: [{port: 8080, targetPort: 8080}]   # the API and the provider webhooks only; the ops port 9090 is not exposed
+---
+# Schema migrations, once per release, before the rollout (see the header). Same image as the gateway: `/app migrate` applies
+# the migrations under the store's advisory lock and exits. It needs only DATABASE_URL.
+apiVersion: batch/v1
+kind: Job
+metadata: {name: relayplane-migrate, namespace: relayplane, labels: {app.kubernetes.io/component: migrate}}
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata: {labels: {app: relayplane-migrate}}
+    spec:
+      restartPolicy: Never
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: migrate
+          image: registry.example.com/relayplane/gateway:0.1.0@sha256:REPLACE_WITH_BUILD_DIGEST
+          args: ["migrate"]
+          env: [{name: DATABASE_URL, valueFrom: {secretKeyRef: {name: relayplane-secrets, key: DATABASE_URL}}}]
+          resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {memory: 256Mi}}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -126,6 +159,9 @@ spec:
   serviceName: evolution-v2
   replicas: 2
   podManagementPolicy: OrderedReady
+  # a node is replaced only on command (kubectl delete pod, after draining it in RelayPlane: docs/runbooks/PROVIDER-UPGRADE.md),
+  # never by a rollout that restarts every node in a row: each restart is downtime for the sessions that node holds
+  updateStrategy: {type: OnDelete}
   selector: {matchLabels: {app: evolution-v2}}
   template:
     metadata: {labels: {app: evolution-v2}}
@@ -153,3 +189,64 @@ spec:
             - {name: DATABASE_CONNECTION_CLIENT_NAME, value: "$(POD_NAME)"}
           readinessProbe: {httpGet: {path: /, port: 8080}, initialDelaySeconds: 30, periodSeconds: 10}
           resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {memory: 2Gi}}
+---
+# Voluntary disruptions (node drains, cluster upgrades) never take a whole tier down at once.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: gateway, namespace: relayplane}
+spec: {minAvailable: 1, selector: {matchLabels: {app: gateway}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: worker, namespace: relayplane}
+spec: {maxUnavailable: 1, selector: {matchLabels: {app: worker}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: reconciler, namespace: relayplane}
+spec: {minAvailable: 1, selector: {matchLabels: {app: reconciler}}}
+---
+# A provider node is a singleton holding live WhatsApp sessions: an eviction is an outage for them. Nothing may evict one on its
+# own; replace a node deliberately (docs/runbooks/NODE-REPLACEMENT.md), which deletes the pod instead of evicting it.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: evolution-v2, namespace: relayplane}
+spec: {maxUnavailable: 0, selector: {matchLabels: {app: evolution-v2}}}
+---
+# Ingress is denied by default in the namespace; the policies below open only what is needed. Egress stays open (PostgreSQL,
+# Redis and the object store may be managed services, tenant webhooks go to the internet, the nodes talk to WhatsApp).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: relayplane}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+---
+# the public API and the provider webhooks (from the ingress controller and from the nodes)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: gateway-api, namespace: relayplane}
+spec:
+  podSelector: {matchLabels: {app: gateway}}
+  policyTypes: [Ingress]
+  ingress: [{ports: [{port: 8080, protocol: TCP}]}]
+---
+# the Evolution API holds the session keys: only RelayPlane's own binaries may call it
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: evolution-from-relayplane, namespace: relayplane}
+spec:
+  podSelector: {matchLabels: {app: evolution-v2}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {matchExpressions: [{key: app, operator: In, values: [gateway, worker, reconciler]}]}}]
+      ports: [{port: 8080, protocol: TCP}]
+---
+# metrics and health on the ops port, for Prometheus only (label its namespace relayplane.io/monitoring=true)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: ops-from-monitoring, namespace: relayplane}
+spec:
+  podSelector: {matchExpressions: [{key: app, operator: In, values: [gateway, worker, reconciler]}]}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{namespaceSelector: {matchLabels: {relayplane.io/monitoring: "true"}}}]
+      ports: [{port: 9090, protocol: TCP}]

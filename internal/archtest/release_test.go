@@ -159,6 +159,32 @@ func TestEvolutionStatefulSetGivesEachPodItsOwnDatabase(t *testing.T) {
 	}
 }
 
+// The production manifest (R31): the schema is migrated once by a Job, not by every replica; a provider node is replaced only on
+// command; voluntary disruptions are bounded; ingress is denied unless a policy opens it; /metrics is not on a Service.
+func TestKubernetesManifestIsHardened(t *testing.T) {
+	s := readRepoFile(t, "deploy", "kubernetes", "relayplane.yaml")
+	if regexp.MustCompile(`(?m)^[^#]*AUTO_MIGRATE`).MatchString(s) {
+		t.Error("no replica may migrate the schema at start-up (AUTO_MIGRATE): the relayplane-migrate Job does it once per release")
+	}
+	if !regexp.MustCompile(`kind: Job\s+metadata: \{name: relayplane-migrate`).MatchString(s) || !strings.Contains(s, `args: ["migrate"]`) {
+		t.Error("the migration Job (gateway image, args [migrate]) is missing")
+	}
+	if i := strings.Index(s, "kind: StatefulSet"); i < 0 || !strings.Contains(s[i:], "updateStrategy: {type: OnDelete}") {
+		t.Error("the provider nodes' StatefulSet must use updateStrategy OnDelete (a rollout must not restart every node in a row)")
+	}
+	for _, app := range []string{"gateway", "worker", "reconciler", "evolution-v2"} {
+		if !regexp.MustCompile(`kind: PodDisruptionBudget\s+metadata: \{name: ` + regexp.QuoteMeta(app) + `,`).MatchString(s) {
+			t.Errorf("no PodDisruptionBudget for %s", app)
+		}
+	}
+	if !strings.Contains(s, "spec: {podSelector: {}, policyTypes: [Ingress]}") {
+		t.Error("the namespace must deny ingress by default (NetworkPolicy default-deny-ingress)")
+	}
+	if regexp.MustCompile(`targetPort: 9090|port: 9090, targetPort`).MatchString(s) {
+		t.Error("no Service may expose the ops port 9090 (unauthenticated /metrics)")
+	}
+}
+
 // The runbooks the alerts and docs point to must exist.
 func TestRunbooksExist(t *testing.T) {
 	for _, f := range []string{"UNKNOWN-MESSAGES.md", "NODE-REPLACEMENT.md"} {

@@ -58,8 +58,9 @@ func TestTheRepositoryManifestRendersToSomethingDeployable(t *testing.T) {
 			}
 		}
 	}
-	if changed != 4 {
-		t.Errorf("exactly the 4 image lines change, got %d", changed)
+	// the gateway image runs twice (the Deployment and the migration Job); every template image line changes, nothing else
+	if want := strings.Count(string(template(t)), "image: registry.example.com/relayplane/"); changed != want || want < len(release.Components) {
+		t.Errorf("exactly the %d template image lines change, got %d", want, changed)
 	}
 	if err := release.Verify(out); err != nil {
 		t.Error(err)

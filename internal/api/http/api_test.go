@@ -785,3 +785,22 @@ func TestListMessagesByStatusOverHTTP(t *testing.T) {
 		t.Errorf("unauthenticated: %d", c)
 	}
 }
+
+func TestHideMetricsKeepsThemOffThePublicHandler(t *testing.T) {
+	e := systemtest.NewEnv(t)
+	api := &apihttp.Server{App: e.App, Metrics: e.Metrics, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), HideMetrics: true,
+		Auth: apihttp.KeyAuthenticator{Tenants: e.App.Tenants, AdminKey: "admin-key"}}
+	srv := httptest.NewServer(api.Handler())
+	t.Cleanup(srv.Close)
+	resp, err := nethttp.Get(srv.URL + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode == 200 {
+		t.Error("/metrics must not be served by the public handler when hidden")
+	}
+	if r, _ := nethttp.Get(srv.URL + "/health/ready"); r == nil || r.StatusCode != 200 {
+		t.Error("health stays on the public handler (the load balancer needs it)")
+	}
+}

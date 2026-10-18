@@ -81,6 +81,8 @@ type Server struct {
 	MaxUpload int64 // bytes accepted by PUT /media/{id}/content
 	// TenantRate limits the requests of each tenant (zero value: unlimited).
 	TenantRate RateConfig
+	// HideMetrics keeps /metrics off this (public) handler; the binary then serves it on its ops port only.
+	HideMetrics bool
 
 	limiter *tenantLimiter
 }
@@ -151,7 +153,7 @@ func (s *Server) Handler() nethttp.Handler {
 		writeJSON(w, 200, map[string]string{"status": "alive"})
 	})
 	mux.HandleFunc("GET /health/ready", s.ready)
-	if s.Metrics != nil {
+	if s.Metrics != nil && !s.HideMetrics {
 		mux.Handle("GET /metrics", s.Metrics.Handler())
 	}
 

@@ -10,7 +10,7 @@ Legenda: 🔑 precisa de número de WhatsApp real · 👤 decisão ou ação sua
 - [ ] 🔑 **Casos do roteiro R22 ainda não vistos:** migração de instância com QR, reação, enquete, localização, queda de conexão **sem** logout, vídeo grande (100 MB) para medir memória do ingestor.
 - [ ] 🧱👤 **Um release candidato novo** com tudo o que entrou depois do `0.3.0-rc3` (entrega ao tenant pelo banco, apagamento fechado nas bordas, contrato `schema_version` 2, limites de assinatura), validado com número real antes do oficial.
 - [ ] 👤 **Primeiro release oficial:** escolher o número (`0.3.0`?), alinhar `docs/VERSIONS.md` e o `docker-compose.yml` (ainda citam 0.2.0), criar a tag `v<versão>` (gera os artefatos e o release no GitHub). Os candidatos `0.3.0-rc1`, `-rc2` e `-rc3` já estão públicos no GHCR: não reutilize esses números.
-- [ ] 👤 **Quem implanta** (decidido: não é do módulo): host, DNS, TLS, segredos, backup e restauração do Postgres e dos bancos dos nodes, e **bloquear `/metrics`** no ingress (está na porta pública do gateway).
+- [ ] 👤 **Quem implanta** (decidido: não é do módulo): host, DNS, TLS, segredos, backup e restauração do Postgres e dos bancos dos nodes, (o `/metrics` já não fica na porta pública do gateway em produção).
 
 ## 2. Dívidas técnicas conhecidas
 
@@ -34,7 +34,7 @@ Supply chain:
 
 ## 3. Operação em escala (G3)
 
-- [ ] 🧱 Kubernetes: `PodDisruptionBudget`, `NetworkPolicy`, migração do banco como **Job** (hoje `AUTO_MIGRATE=true` nas réplicas; é seguro por lock consultivo, mas o Job separa responsabilidades no upgrade e no rollback), `updateStrategy: OnDelete` no StatefulSet do Evolution (troca de node sob comando, com `drain`; ver `runbooks/PROVIDER-UPGRADE.md`).
+- [ ] 🧱 Kubernetes: testes de rolling upgrade e rollback num cluster (R35). `PodDisruptionBudget`, `NetworkPolicy`, migração como Job e `OnDelete` nos nodes já estão no manifesto.
 - [ ] 🧱 Dashboards e SLOs sobre as métricas que já existem (latência de entrega de eventos, `relayplane_unknown_*`, `relayplane_event_outbox_*`, `relayplane_event_projection_*`, `relayplane_webhook_backlog_overflow_total`).
 - [ ] 👤 Backup e PITR do Postgres; capacidade real (carga em escala, não só o ensaio de 2000 mensagens).
 - [ ] 🧱 Rotação da chave admin e log de auditoria (R34; o `govulncheck` já roda no CI).

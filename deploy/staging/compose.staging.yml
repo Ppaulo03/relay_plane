@@ -10,6 +10,8 @@ services:
   gateway:
     image: ${GATEWAY_IMAGE:?images.env}
     build: !reset null
+    # production serves /metrics only on the ops port (never on the public one); published on loopback for the smoke test
+    ports: ["127.0.0.1:${GATEWAY_OPS_PORT:-19090}:9090"]
   worker:
     image: ${WORKER_IMAGE:?images.env}
     build: !reset null

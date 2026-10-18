@@ -26,6 +26,8 @@ jobs:
         with:
           go-version-file: go.mod
       - run: make fmt-check vet
+      # the Kubernetes manifest against the API schemas (unknown or misplaced fields fail)
+      - run: go run github.com/yannh/kubeconform/cmd/kubeconform@v0.7.0 -strict -summary deploy/kubernetes/relayplane.yaml
       - run: go test -count=1 ./...
       - run: go test -race -count=1 ./internal/...
       # known vulnerabilities in the Go dependencies and the standard library that the code actually reaches (R34)

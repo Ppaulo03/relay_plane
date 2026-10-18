@@ -10,7 +10,7 @@
 | `evolution-node-XX` | **exatamente 1 por identidade** | Singleton stateful. Escalar = **adicionar** `node-03`, `node-04`… (novo container, novo banco, nova entrada em `PROVIDER_NODES`), nunca replicar. |
 | `postgres`, `redis`, object store | conforme provedor | PostgreSQL é a fonte de verdade; Redis guarda comandos/eventos em trânsito; o object store guarda mídia (qualquer backend S3). |
 
-Portas: gateway `HTTP_PORT` (8080); worker/reconciler expõem `/metrics` e `/health/*` em `OPS_PORT` (9090).
+Portas: gateway `HTTP_PORT` (8080, API e webhooks dos nodes); gateway, worker e reconciler expõem `/metrics` e `/health/*` em `OPS_PORT` (9090). Em produção o `/metrics` **não** fica na porta pública do gateway (`METRICS_ON_API_PORT`, padrão `true` só fora de produção). No Kubernetes a migração do schema é o Job `relayplane-migrate` (`gateway migrate`), não `AUTO_MIGRATE` nas réplicas (ver [`RELEASE`](./RELEASE.md)).
 
 ## Eventos para o tenant (webhooks de saída)
 
